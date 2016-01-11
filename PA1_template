@@ -1,0 +1,119 @@
+---
+title: "Coursera_RR_Ex_1"
+author: "Todd Sensing"
+date: "January 10, 2016"
+output: html_document
+---
+
+```{r}
+library(ggplot2)
+library(dplyr)
+library(lattice)
+library(lubridate)
+library(knitr)
+
+```
+Load data & Prepare data
+```{r}
+activity <- read.csv("activity.csv",header =TRUE,sep=',',colClasses = c("integer","character","integer"))
+activity$date <- ymd(activity$date)
+activity_by_day <- tbl_df(activity)
+activity_by_day <- activity %>%
+  na.omit() %>%
+  group_by(date)
+activity_by_day <- activity_by_day %>%
+  group_by(date) %>%
+  summarise(activity_by_day = sum(steps))
+
+```
+Plot Histogram
+```{r}
+qplot(x=activity_by_day,data=activity_by_day
+        ,geom="histogram"
+        , fill=I("green")
+        ,col=I("blue")
+        ,alpha=I(.3) )
+```
+
+Calculate the mean and median steps per day
+```{r}
+mean_steps_per_day <- mean(activity_by_day$activity_by_day)
+mean_steps_per_day
+median_steps_per_day <- median(activity_by_day$activity_by_day)
+median_steps_per_day
+
+```
+
+Format to plot time series plot of steps.
+
+```{r}
+ts <- aggregate(steps ~ interval, activity, mean)
+plot(ts, type='l')
+```
+Plot 
+```{r}
+##ggplot(activity_by_day, aes(x= date, y = activity_by_day)) + geom_path(colour="red")
+barplot(activity_by_day$activity_by_day, names.arg=activity_by_day$date, ylim=c(0, 23000), 
+        xlab="date", ylab="Activity by day",)
+```
+
+Calculate the Max steps per day
+```{r}
+activity[which.max(activity$steps),]
+
+```
+
+Count the total number of nas
+```{r}
+
+sum(is.na(activity$steps))
+
+```
+Filling in the NAs with the average of the period
+```{r}
+activity_fill <- merge(activity, activity_by_day, by="date", suffixes=c("", ".mean"))
+nas <- is.na(activity_fill$steps)
+activity_fill$steps[nas] <- activity_fill$steps.mean[nas]
+activity_fill <- activity_fill[, c(1:3)]
+head(activity_fill)
+ts <- aggregate(steps ~ date, activity_fill, sum)
+
+
+```
+Plot Histogram
+```{r}
+
+barplot(ts$steps, names.arg=ts$date, ylim=c(0, 23000), 
+        xlab="date", ylab="sum(steps)",)
+
+```
+Caclulate the post filled data mean and median:
+```{r}
+mean_steps_per_day <- mean(ts$steps)
+mean_steps_per_day
+median_steps_per_day <- median(ts$steps)
+median_steps_per_day
+
+```
+
+
+Using weekdays() function to add new column for day of week
+```{r}
+activity_fill <- mutate(activity_fill, weektype = ifelse(weekdays(activity_fill$date) == "Saturday" | weekdays(activity_fill$date) == "Sunday", "weekend", "weekday"))
+activity_fill$weektype <- as.factor(activity_fill$weektype)
+
+```
+Plot of average steps on weekdys and weekends
+
+```{r}
+#activity_fill <- activity_fill %>%
+ # group_by(date, weektype) %>%
+  #summarise(steps = mean(steps))
+activity_day <- aggregate(steps ~ date+weektype+interval, activity_fill, mean)
+
+weekly_activity <- ggplot(activity_day, aes(x = interval, y = steps, color = weektype)) +
+        geom_line()+
+        facet_wrap(~weektype, ncol = 1, nrow =2)
+print(weekly_activity)
+
+```
